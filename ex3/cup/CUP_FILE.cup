@@ -1,0 +1,241 @@
+/*************/
+/* IMPORT(S) */
+/*************/
+import java.io.PrintWriter;
+import java_cup.runtime.*;
+import AST.*;
+
+/*************/
+/* PARSER CODE */
+/*************/
+parser code 
+{:
+    public Lexer lexer;
+    public int lineNum =0 ;
+    public PrintWriter file_writer;
+    
+    public Parser(Lexer lexer,PrintWriter file_writer){
+        super(lexer);
+        this.lexer = lexer;
+        this.file_writer=file_writer;
+    }
+    public void report_error(String message, Object info)
+    {
+        file_writer.print(String.format("ERROR(%d)\n", lexer.getLine()));
+        file_writer.close();
+        System.out.print("ERROR >> [" + lexer.getLine() + ":" +  (lexer.getTokenStartPosition()-1) + "]");
+    }
+    private String escapeDotLabel(String label) {
+        return label.replace("\"","\\\"").replace("\n","\\n");
+    }
+:}
+
+/************************/
+/* CUSTOMIZE CUP PARSER */
+/************************/
+scan with
+{:
+    Symbol s;
+    lineNum = lexer.getLine();
+    s = lexer.next_token();
+    if (s.sym == TokenNames.ERROR)
+    {
+        System.out.print("LEXICAL ERROR >> [" + lexer.getLine() + ":" + (lexer.getTokenStartPosition()-1) + "]");
+        file_writer.print(String.format("ERROR"));
+        file_writer.close();
+    }
+    System.out.print("[" + lexer.getLine() + ":" +  (lexer.getTokenStartPosition()-1) + "]");
+    System.out.print(TokenNames.terminalNames[s.sym]);
+    if (s.value != null)
+    {
+        System.out.print("( "+s.value+" )");
+    }
+    System.out.print("\n");
+    return s;
+:};
+
+/*************/
+/* TERMINALS */
+/*************/
+terminal PLUS, MINUS, TIMES, DIVIDE;
+terminal LPAREN, RPAREN, LBRACK, RBRACK, LBRACE, RBRACE;
+terminal COMMA, DOT, SEMICOLON, ASSIGN;
+terminal EQ, LT, GT;
+terminal NIL, TYPE_INT, TYPE_VOID, TYPE_STRING;
+terminal ARRAY, CLASS, EXTENDS, RETURN, WHILE, IF, NEW;
+terminal ERROR;
+terminal Integer INT, NUMBER;
+terminal String ID, STRING;
+
+/*****************/
+/* NON TERMINALS */
+/*****************/
+non terminal AST_PROGRAM program;
+non terminal AST_DEC dec;
+non terminal AST_DEC_LIST declist;
+non terminal AST_TYPE type;
+non terminal AST_ARRAY_TYPEDEF arrayTypedef;
+non terminal AST_VAR_DEC varDec;
+non terminal AST_FUNC_DEC funcDec;
+non terminal AST_CLASS_DEC classDec;
+non terminal AST_EXP exp;
+non terminal AST_EXP_LIST expList;
+non terminal AST_VAR var;
+non terminal AST_STMT stmt;
+non terminal AST_STMT_LIST stmtList;
+non terminal AST_NEW_EXP newExp;
+non terminal AST_CFIELD cField;
+non terminal AST_CFIELD_LIST cFieldList;
+non terminal AST_BINOP binop;
+non terminal AST_ID_LIST typeIdList;
+non terminal AST_IDLINE line;
+
+
+/***********************/
+/* OPERATOR PRECEDENCE */
+/***********************/
+precedence nonassoc ASSIGN;
+precedence left EQ;
+precedence left LT, GT;
+precedence left PLUS, MINUS;
+precedence left TIMES, DIVIDE;
+precedence nonassoc LBRACK;
+precedence nonassoc LPAREN;
+precedence left DOT;
+
+/************************/
+/* START WITH: program */
+/************************/
+start with program;
+
+/********************/
+/* DERIVATION RULES */
+/********************/
+
+/* program ::= dec+ */
+program ::= dec:d program:p  {: RESULT = new AST_PROGRAM(d, p);  RESULT.setCurrentLine(lineNum); :}
+           |dec:d            {: RESULT = new AST_PROGRAM(d, null);  RESULT.setCurrentLine(lineNum) ;:};
+
+
+/* dec+ ::= dec | dec dec+ */
+declist ::= dec:h declist:t {: RESULT = new AST_DEC_LIST(h, t); RESULT.setCurrentLine(lineNum);   :}
+          | dec:d           {: RESULT = new AST_DEC_LIST(d, null);RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* dec ::= varDec | funcDec | classDec | arrayTypedef */
+dec ::= varDec:varDec             {: RESULT = varDec;RESULT.setCurrentLine(lineNum);       :}
+      | funcDec:funcDec           {: RESULT = funcDec; RESULT.setCurrentLine(lineNum);     :}
+      | classDec:classDec         {: RESULT = classDec; RESULT.setCurrentLine(lineNum);    :}
+      | arrayTypedef:arrayTypedef {: RESULT =arrayTypedef;RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* type ::= TYPE_INT | TYPE_STRING | TYPE_VOID | ID */
+type ::= TYPE_INT    {: RESULT = new AST_TYPE("TYPE_INT", false);RESULT.setCurrentLine(lineNum);    :}
+       | TYPE_STRING {: RESULT = new AST_TYPE("TYPE_STRING", false); RESULT.setCurrentLine(lineNum);:}
+       | TYPE_VOID   {: RESULT = new AST_TYPE("TYPE_VOID", false);  RESULT.setCurrentLine(lineNum); :}
+       | ID:id       {: RESULT = new AST_TYPE(id, true);           RESULT.setCurrentLine(lineNum);  :} ;
+
+
+/* arrayTypedef ::= ARRAY ID EQ type '[' ']' ';' */
+arrayTypedef ::= ARRAY ID:id EQ type:type LBRACK RBRACK SEMICOLON {: RESULT = new AST_ARRAY_TYPEDEF(type, id);RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* varDec ::= type ID [ ASSIGN exp ] ';' / varDec ::= type ID ASSIGN newExp ';' */
+varDec ::= type:type ID:id SEMICOLON                      {: RESULT = new AST_VAR_DEC_EXP(type, id, null); RESULT.setCurrentLine(lineNum);  :}
+         | type:type ID:id ASSIGN exp:exp SEMICOLON       {: RESULT = new AST_VAR_DEC_EXP(type, id, exp); RESULT.setCurrentLine(lineNum);   :}
+         | type:type ID:id ASSIGN newExp:newExp SEMICOLON {: RESULT = new AST_VAR_DEC_NEW(type, id, newExp);RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* funcDec ::= type ID '(' [type ID [ COMMA type ID ]* ] ')' '{' stmt [stmt]* '}' */
+funcDec ::= type:t ID:id LPAREN RPAREN LBRACE stmtList:sList RBRACE                   {: RESULT = new AST_FUNC_DEC(t, id, null, sList);RESULT.setCurrentLine(lineNum);    :}
+          | type:t ID:id LPAREN typeIdList:tiList RPAREN LBRACE stmtList:sList RBRACE {: RESULT = new AST_FUNC_DEC(t, id, tiList, sList);RESULT.setCurrentLine(lineNum);  :} ;
+
+
+/* [ type ID [ COMMA type ID ]* ] */
+typeIdList ::= type:t ID:id COMMA typeIdList:list {: RESULT = new AST_ID_LIST(t, id, list); RESULT.setCurrentLine(lineNum);    :}
+             | type:t ID:id                       {: RESULT = new AST_ID_LIST(t, id, null); RESULT.setCurrentLine(lineNum);    :} ;
+
+
+/* classDec ::= CLASS ID [ EXTENDS ID ] '{' cField [ cField ]∗ '}' */
+classDec ::= CLASS line:l LBRACE cFieldList:list RBRACE                    {: RESULT = new AST_CLASS_DEC(l.id, null, list,l.lineNum); RESULT.setCurrentLine(lineNum);   :}
+           | CLASS line:l EXTENDS ID:superid LBRACE cFieldList:list RBRACE {: RESULT = new AST_CLASS_DEC(l.id, superid, list,l.lineNum);RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* [cField [ cField ]*] */
+cFieldList ::= cField:cf cFieldList:l {: RESULT = new AST_CFIELD_LIST(cf, l);  RESULT.setCurrentLine(lineNum);  :}
+             | cField:cf              {: RESULT = new AST_CFIELD_LIST(cf, null);RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* exp ::= var / exp ::= '(' exp ')' / exp ::= exp BINOP exp / exp ::= [varDOT]ID'(' [exp[COMMAexp]* ]')' / exp ::= ['−'] INT | NIL | STRING */
+exp ::= var:v                                        {: RESULT = new AST_EXP_VAR(v);RESULT.setCurrentLine(lineNum); :}
+      | LPAREN exp:e RPAREN                          {: RESULT = new AST_EXP_NODE(e);RESULT.setCurrentLine(lineNum); :}
+      | exp:e1 PLUS exp:e2                           {: RESULT = new AST_EXP_BINOP(e1, "plus", e2); RESULT.setCurrentLine(lineNum);:}
+      | exp:e1 MINUS exp:e2                          {: RESULT = new AST_EXP_BINOP(e1, "minus", e2);RESULT.setCurrentLine(lineNum); :}
+      | exp:e1 TIMES exp:e2                          {: RESULT = new AST_EXP_BINOP(e1, "times", e2);RESULT.setCurrentLine(lineNum); :}
+      | exp:e1 DIVIDE exp:e2                         {: RESULT = new AST_EXP_BINOP(e1, "divide", e2);RESULT.setCurrentLine(lineNum); :}
+      | exp:e1 EQ exp:e2                             {: RESULT = new AST_EXP_BINOP(e1, "eq", e2);RESULT.setCurrentLine(lineNum); :}
+      | exp:e1 LT exp:e2                             {: RESULT = new AST_EXP_BINOP(e1, "lt", e2);RESULT.setCurrentLine(lineNum); :}
+      | exp:e1 GT exp:e2                             {: RESULT = new AST_EXP_BINOP(e1, "gt", e2);RESULT.setCurrentLine(lineNum); :}
+      | ID:id LPAREN RPAREN                          {: RESULT = new AST_EXP_ID(null, id, null); RESULT.setCurrentLine(lineNum);:}
+      | var:v DOT ID:id LPAREN RPAREN                {: RESULT = new AST_EXP_ID(v, id, null);RESULT.setCurrentLine(lineNum); :}
+      | ID:id LPAREN expList:elist RPAREN            {: RESULT = new AST_EXP_ID(null, id, elist); RESULT.setCurrentLine(lineNum);:}
+      | var:v DOT ID:id LPAREN expList:elist RPAREN  {: RESULT = new AST_EXP_ID(v, id, elist);RESULT.setCurrentLine(lineNum); :}
+      | INT:i							             {: RESULT = new AST_EXP_INT(i);RESULT.setCurrentLine(lineNum); :}
+      | MINUS INT:i						             {: RESULT = new AST_EXP_INT(-i); RESULT.setCurrentLine(lineNum);:}
+      | NIL                                          {: RESULT = new AST_EXP_NIL();RESULT.setCurrentLine(lineNum); :}
+      | STRING:s                                     {: RESULT = new AST_EXP_STRING(escapeDotLabel(s)); RESULT.setCurrentLine(lineNum);:} ;
+
+
+/* [exp [',' exp]* ] */
+expList ::= exp:e              {: RESULT = new AST_EXP_LIST(e, null); RESULT.setCurrentLine(lineNum);:}
+          | exp:e COMMA expList:l {: RESULT = new AST_EXP_LIST(e, l);RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* var ::= ID / var ::= var DOT ID / var ::= var '[' exp ']' */
+var ::= ID:id                     {: RESULT = new AST_VAR_SIMPLE(id);RESULT.setCurrentLine(lineNum); :}
+      | var:v DOT ID:id           {: RESULT = new AST_VAR_FIELD(v, id);RESULT.setCurrentLine(lineNum); :}
+      | var:v LBRACK exp:e RBRACK {: RESULT = new AST_VAR_SUBSCRIPT(v, e);RESULT.setCurrentLine(lineNum); :} ;
+
+
+
+/* stmt ::= varDec / stmt ::= var ASSIGN exp ’;’ / stmt ::= var ASSIGN newExp ’;’ / stmt ::= RETURN [ exp ] ’;’
+stmt ::= IF ′(′ exp ′)′ ′{′ stmt [ stmt ]* ′}′ / stmt ::= WHILE ′(′ exp ′)′ ′{′ stmt [ stmt ]∗ ′}′ / stmt ::= [varDOT]ID′(′ [exp[COMMAexp]∗ ]′)′ ’;’ */
+stmt ::= varDec:v                                               {: RESULT = new AST_STMT_VAR_DEC(v); RESULT.setCurrentLine(lineNum);:}
+       | var:v ASSIGN exp:e SEMICOLON                           {: RESULT = new AST_STMT_ASSIGN(v, e); RESULT.setCurrentLine(lineNum);:}
+       | var:v ASSIGN newExp:e SEMICOLON                        {: RESULT = new AST_STMT_ASSIGN_NEW(v, e);RESULT.setCurrentLine(lineNum); :}
+       | RETURN exp:e SEMICOLON                                 {: RESULT = new AST_STMT_RETURN(e); RESULT.setCurrentLine(lineNum);:}
+       | RETURN SEMICOLON                                       {: RESULT = new AST_STMT_RETURN(null);RESULT.setCurrentLine(lineNum); :}
+       | IF LPAREN exp:e RPAREN LBRACE stmtList:sList RBRACE    {: RESULT = new AST_STMT_IF(e, sList);RESULT.setCurrentLine(lineNum); :}
+       | WHILE LPAREN exp:e RPAREN LBRACE stmtList:sList RBRACE {: RESULT = new AST_STMT_WHILE(e, sList);RESULT.setCurrentLine(lineNum); :}
+       | ID:id LPAREN RPAREN SEMICOLON                          {: RESULT = new AST_STMT_FUNC(null, id, null); RESULT.setCurrentLine(lineNum);:}
+       | ID:id LPAREN expList:eList RPAREN SEMICOLON            {: RESULT = new AST_STMT_FUNC(null, id, eList);RESULT.setCurrentLine(lineNum); :}
+       | var:v DOT ID:id LPAREN RPAREN SEMICOLON                {: RESULT = new AST_STMT_FUNC(v, id, null);RESULT.setCurrentLine(lineNum); :}
+       | var:v DOT ID:id LPAREN expList:eList RPAREN SEMICOLON  {: RESULT = new AST_STMT_FUNC(v, id, eList);RESULT.setCurrentLine(lineNum); :} ;
+
+
+/* stmt [stmt]* */
+stmtList ::= stmt:s	stmtList:l {: RESULT = new AST_STMT_LIST(s,l); RESULT.setCurrentLine(lineNum);:}
+		   | stmt:s			   {: RESULT = new AST_STMT_LIST(s,null); RESULT.setCurrentLine(lineNum);:} ;
+
+
+/* newExp ::= NEW type | NEW type ′[′ exp ′]′ */
+newExp ::= NEW type:t LBRACK exp:e RBRACK {: RESULT = new AST_NEW_EXP(t, e); RESULT.setCurrentLine(lineNum);:}
+         | NEW type:t                     {: RESULT = new AST_NEW_EXP(t, null); RESULT.setCurrentLine(lineNum);:} ;
+
+
+/* cField ::= varDec | funcDec */
+cField ::= varDec:v  {: RESULT = new AST_CFIELD_VAR(v);RESULT.setCurrentLine(lineNum);:}
+         | funcDec:f {: RESULT = new AST_CFIELD_FUNC(f); RESULT.setCurrentLine(lineNum);:};
+
+
+/* BINOP ::= PLUS|MINUS|TIMES|DIVIDE|LT|GT|EQ */
+binop ::= PLUS   {: RESULT = new AST_BINOP("plus"); RESULT.setCurrentLine(lineNum);:}
+        | MINUS  {: RESULT = new AST_BINOP("minus"); RESULT.setCurrentLine(lineNum);:}
+        | TIMES  {: RESULT = new AST_BINOP("times"); RESULT.setCurrentLine(lineNum);:}
+        | DIVIDE {: RESULT = new AST_BINOP("divide"); RESULT.setCurrentLine(lineNum);:}
+        | EQ     {: RESULT = new AST_BINOP("eq");RESULT.setCurrentLine(lineNum); :}
+        | LT     {: RESULT = new AST_BINOP("lt"); RESULT.setCurrentLine(lineNum);:}
+        | GT     {: RESULT = new AST_BINOP("gt");RESULT.setCurrentLine(lineNum); :} ;
+
+line ::= ID:id{: RESULT = new AST_IDLINE(id); RESULT.setCurrentLine(lineNum); :};
+
