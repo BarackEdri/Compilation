@@ -1,0 +1,7 @@
+Test Results
+============
+
+Summary:
+Total files processed: 42
+Success count: 42
+Failure count: 0
