@@ -1,0 +1,7 @@
+void main () {
+    int level;
+    while (1) {
+        level := 5;
+        int level;
+    }
+}

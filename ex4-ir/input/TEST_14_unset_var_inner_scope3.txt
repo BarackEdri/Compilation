@@ -1,0 +1,7 @@
+void main() {
+    int x := 5;
+    if (1) {
+        int x;
+    }
+    int y := x;
+}

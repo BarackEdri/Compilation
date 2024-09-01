@@ -1,0 +1,4 @@
+int left := 1;
+int right;
+int result := left / right;
+int y := result;

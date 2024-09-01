@@ -1,0 +1,15 @@
+void main() {
+    int x;
+    int y := 4;
+    int z;
+    if (1) {
+      if (y > 1) {
+          x := y;
+      }
+      if (x > 1) {
+          x := 3;
+      }
+      y := z;
+    }
+    z := x;
+}

@@ -1,0 +1,6 @@
+void main () {
+    int level := 0;
+    while (level < 3) {
+        int level;
+    }
+}

@@ -1,0 +1,16 @@
+void main() {
+    int x;
+    int y := 4;
+    int z := 1;
+    while (y > 4) {
+      if (y > 1) {
+          x := y;
+          z := x;
+      }
+      if (z < 1) {
+          x := 3;
+          z := y + x;
+      }
+    }
+    x := z;
+}

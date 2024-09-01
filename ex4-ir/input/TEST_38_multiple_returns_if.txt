@@ -1,0 +1,28 @@
+void main() {
+    int x;
+    int y := 4;
+    int w;
+    if (y > 1) {
+      return;
+      w := x + y;
+      return;
+    }
+    if (1) {
+      x := 5;
+      y := x;
+      return;
+      if (1) {
+        y := w;
+      }
+    }
+    if (1) {
+      if (1) {
+        x := 0;
+      }
+      return;
+      y := w;
+    }
+    int z := y;
+    w := z;
+    return;
+}

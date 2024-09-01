@@ -1,0 +1,7 @@
+int x;
+
+void main () {
+    int y := x;
+    int x;
+    int z := x;
+}

@@ -1,0 +1,13 @@
+int x;
+
+void main() {
+    int x := 5;
+
+    while (x > 0) {
+        int x;
+        if (x > 4) {
+            int x := 5;
+            int y := x;
+        }
+    }
+}

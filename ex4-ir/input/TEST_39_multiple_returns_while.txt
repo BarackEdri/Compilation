@@ -1,0 +1,18 @@
+void main() {
+    int x;
+    int y := 4;
+    while (y > 1) {
+      return;
+      y := x + y;
+      while (y > 1) {
+        return;
+        y := x;
+      }
+    }
+    if (1) {
+      return;
+      y := x;
+    }
+    return;
+    y := x;
+}

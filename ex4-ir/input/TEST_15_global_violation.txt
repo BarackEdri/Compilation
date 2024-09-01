@@ -1,0 +1,10 @@
+int x;
+int y;
+int g := x;
+
+void main() {
+    int z := 5;
+    PrintInt(z);
+}
+
+int b;

@@ -1,0 +1,11 @@
+void main() {
+    int x;
+    int y := 4;
+    int z := 1;
+    while (y > 4) {
+      while (z > 4) {
+        z := x;
+      }
+    }
+    x := z;
+}

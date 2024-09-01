@@ -1,0 +1,8 @@
+int x;
+
+void main() {
+   int y;
+   int z := x + y;
+
+   PrintInt(z);
+}

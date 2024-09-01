@@ -1,0 +1,9 @@
+int b;
+int x;
+
+void main() {
+    int x := 5;
+    PrintInt(x);
+}
+
+int g := x;
